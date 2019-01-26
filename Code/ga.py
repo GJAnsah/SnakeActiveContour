@@ -5,6 +5,12 @@ from skimage import data
 from scipy import ndimage
 from deap import creator, base, tools, algorithms
 
+%matplotlib inline
+
+import numpy as np
+from scipy import ndimage
+import matplotlib.pyplot as plt
+
 
 alpha = 0.33 #controls continuity energy impact
 beta = 0.33 #controls curvatur energy impact
@@ -152,14 +158,16 @@ def genetic_algorithm( ):
     stats.register("min", np.min)
     stats.register("max", np.max)
 
-    algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=40, stats=stats)
-                        #,
-                       # halloffame=hof)
+    algorithms.eaSimple(pop, toolbox, cxpb=0.7, mutpb=0.0002, ngen=50, stats=stats, halloffame=hof)
 
+    fig, ax = plt.subplots(figsize=(7, 7))
+    ax.imshow(image, cmap=plt.cm.gray)
+    ax.plot(hof[0][0][:, 0], hof[0][0][:, 1], '-b', lw=3)
+
+    plt.show()
     return pop, stats, hof
 
 
 
 if __name__ == "__main__":
-
     genetic_algorithm()
