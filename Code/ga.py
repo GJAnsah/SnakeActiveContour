@@ -7,31 +7,36 @@ import numpy as np
 
 def eval(individual):
     A = 0
+    individual = individual[0]
     for i in range(len(individual[0])-1):
         #x[i]* y[i+1] - x[i+1]*y[i]
-        tmp_1 = individual[i][0] * individual[i+1][1]
-        tmp_2 = individual[i+1][0] * individual[i][1]
+        tmp1 = individual[i][0] * individual[i+1][1]
+        tmp2 = individual[i+1][0] * individual[i][1]
         A = A + (tmp1 - tmp2)
     A = abs(A)
-    return 0.5*A
+    return 0.5*A,
 
-def mutSet(individual):
+def mutSet(individual, prop):
     size = len(individual)
     _x = random.randint(1, size)
     _y = random.randint(1, 2)
-    individual[_x][_y] += random.uniform(-10,10)
+    individual[0][_x][_y] += random.uniform(-10,10)
     return individual
 
 def cxTwoPointCopy(ind1, ind2):
-    size = len(ind1)
+    #ind1 = ind1[0]
+    #ind2 = ind2[0]
+    size = len(ind1[0])
     cxpoint1 = random.randint(1, size)
     cxpoint2 = random.randint(1, size - 1)
     if cxpoint2 >= cxpoint1:
         cxpoint2 += 1
     else:  # Swap the two cx points
         cxpoint1, cxpoint2 = cxpoint2, cxpoint1
-    ind1[cxpoint1:cxpoint2], ind2[cxpoint1:cxpoint2] \
-        = ind2[cxpoint1:cxpoint2].copy(), ind1[cxpoint1:cxpoint2].copy()
+    ind1[0][cxpoint1:cxpoint2], ind2[0][cxpoint1:cxpoint2] \
+        = ind2[0][cxpoint1:cxpoint2].copy(), ind1[0][cxpoint1:cxpoint2].copy()
+    ind1.fitness.values = eval(ind1)
+    ind2.fitness.values = eval(ind2)
     return ind1, ind2
 
 def initIndividual():
@@ -66,12 +71,15 @@ def genetic_algorithm( ):
     # register crossover
     toolbox.register("mate", cxTwoPointCopy)
     toolbox.register("evaluate", eval)
-    toolbox.register("mutate", tools.mutFlipBit, indpb=0.05)
+    toolbox.register("mutate", mutSet, indpb=0.05)
     toolbox.register("select", tools.selTournament, tournsize=3)
     random.seed(64)
 
     #run GA
     pop = toolbox.population(n=300)
+
+    for p in pop:
+        p.fitness.values = eval(p)
 
 
     # Numpy equality function (operators.eq) between two arrays returns the
@@ -86,8 +94,9 @@ def genetic_algorithm( ):
     stats.register("min", np.min)
     stats.register("max", np.max)
 
-    algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=40, stats=stats,
-                        halloffame=hof)
+    algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=40, stats=stats)
+                        #,
+                       # halloffame=hof)
 
     return pop, stats, hof
 
