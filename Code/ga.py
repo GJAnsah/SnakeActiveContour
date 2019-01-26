@@ -1,5 +1,6 @@
 import random, math
 import numpy as np
+from skimage.color import rgb2gray
 from skimage import data
 from scipy import ndimage
 from deap import creator, base, tools, algorithms
@@ -9,10 +10,6 @@ alpha = 0.33 #controls continuity energy impact
 beta = 0.33 #controls curvatur energy impact
 gamma = 0.33 #controls area energy impact
 
-import numpy as np
-
-def imageIntensity(image): 
-    return (0)
 
 def imageGradient(image):
     sx = ndimage.sobel(image,axis=0,mode='constant')
@@ -21,14 +18,17 @@ def imageGradient(image):
     sobel = np.hypot(sx,sy)
     return (sobel)
 
-imageGradients = imageGradient(data.astronaut())
+image = data.astronaut()
+image = rgb2gray(image)
+imageGradients = imageGradient(image)
+
 
 def gradientEnergy(individual):
     eGrad = 0.0
     for i in range(len(individual[0])-1):
         ind = individual[0][i]
         tmp_1 = imageGradients[ind[0]][ind[1]]
-        tmp_1 = -(abs(tmp_1)^2)
+        tmp_1 = -(abs(tmp_1)*abs(tmp_1))
         eGrad = eGrad + tmp_1
     return(eGrad)
 
@@ -76,7 +76,7 @@ def mutSet(prop,individual):
     size = len(individual[0])
     _x = random.randint(0, size-1)
     _y = random.randint(0, 1)
-    individual[0][_x][_y] += random.uniform(-10,10)
+    individual[0][_x][_y] += np.int(random.uniform(-10,10))
     return individual,
 
 def cxTwoPointCopy(ind1, ind2):
@@ -107,7 +107,9 @@ def initIndividual():
     y = _y + _r * np.sin(s) #250 + 57 * np.sin(s)
     V = np.array([x, y]).T
     V2 = V[::50]
-    x0, y0 = V2[:, 0].astype(np.float), V2[:, 1].astype(np.float)
+   
+    x0, y0 = V2[:, 0].astype(np.int), V2[:, 1].astype(np.int)
+
     # store snake progress
     sn = np.array([x0, y0]).T
     return sn
