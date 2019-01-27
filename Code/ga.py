@@ -1,5 +1,7 @@
 import random, math
 import numpy as np
+import skimage as skimage
+import scipy as scipy
 from skimage.color import rgb2gray
 from skimage import data
 from scipy import ndimage
@@ -13,35 +15,40 @@ from scipy import ndimage
 import matplotlib.pyplot as plt
 import cv2
 
-alpha = 0.2  # controls continuity energy impact
-beta = 0.2  # controls curvatur energy impact
-gamma = 0.6  # controls area energy impact
+alpha = 0.5  # controls continuity energy impact
+beta =  0.9 # controls curvatur energy impact
+gamma = 1  #controls external engery impact
 
-
-def imageGradient(image):
-    sx = ndimage.sobel(image, axis=0, mode='constant')
-    sy = ndimage.sobel(image, axis=1, mode='constant')
-    # Get square root of sum of squares
-    sobel = np.hypot(sx, sy)
-    return (sobel)
+wLine = 0
+wEdge = 1
 
 image = cv2.imread('pic3.png')
 #image = data.astronaut()
 image = rgb2gray(image)
-imageGradients = imageGradient(image)
 
+floatimage = skimage.img_as_float(image)
 
-def gradientEnergy(individual):
-    eGrad = 0.0
-    for i in range(len(individual[0]) - 1):
-        ind = individual[0][i]
-        tmp_1 = imageGradients[ind[0]][ind[1]]
-        tmp_1 = -(abs(tmp_1) * abs(tmp_1))
-        eGrad = eGrad + tmp_1
-    return (eGrad)
+edgeImage = np.sqrt(scipy.ndimage.sobel(floatimage, axis=0, mode='reflect') ** 2 +
+                    scipy.ndimage.sobel(floatimage, axis=1, mode='reflect') ** 2)
+edgeImage = (edgeImage - edgeImage.min()) / (edgeImage.max() - edgeImage.min())
 
+fig, ax = plt.subplots(figsize=(7, 7))
+ax.imshow(edgeImage, cmap=plt.cm.gray)
 
-def areaEnergy(individual):
+plt.show()
+
+externalEnergy = wLine * floatimage + wEdge * edgeImage
+
+externalEnergyInterpolation = scipy.interpolate.RectBivariateSpline(np.arange(externalEnergy.shape[1]),
+                                                                    np.arange(externalEnergy.shape[0]),
+                                                                    externalEnergy.T, kx=2, ky=2, s=0)
+
+def _externalEnergy(individual):
+    x,y = individual[0][:,0], individual[0][:,1]
+    energies = externalEnergyInterpolation(x,y,dy=1,grid=False)
+    return (sum(energies))
+
+def _areaEnergy(individual):
     A = 0.0
     for i in range(len(individual[0]) - 1):
         # x[i]* y[i+1] - x[i+1]*y[i]
@@ -52,47 +59,42 @@ def areaEnergy(individual):
     return 0.5 * A
 
 
-def continuityEnergy(individual):
+def _continuityEnergy(individual):
+    x,y = individual[0][:,0], individual[0][:,1]
+    n = len(x)
     cE = 0.0
-    for i in range(1, len(individual[0])):
-        # sqrt((x2-x1)^2 + (y2-y1)^2)
-        tmp_1 = individual[0][i][0] - individual[0][i - 1][0]
-        tmp_2 = individual[0][i][1] - individual[0][i - 1][1]
-        tmp_res = math.sqrt(tmp_1 * tmp_1 + tmp_2 * tmp_2)
-        cE = cE + tmp_res
+    for i in range(n-1):
+        nextp = np.array((x[i+1],y[i+1]))
+        currp = np.array((x[i],y[i]))
+        cE = cE + np.linalg.norm(nextp - currp)**2
     return (cE)
 
 
-def smoothnessEnergy(individual):
+def _smoothnessEnergy(individual):
+    x,y = individual[0][:,0], individual[0][:,1]
+    n = len(x)
     sE = 0.0
-    for i in range(1, len(individual[0]) - 1):
-        # |vi+1 - 2vi + vi-1|^2
-        tmp_1 = individual[0][i + 1][0] - 2 * individual[0][i][0] + individual[0][i - 1][0]
-        tmp_2 = individual[0][i + 1][1] - 2 * individual[0][i][1] + individual[0][i - 1][1]
-        tmp_res = math.sqrt(tmp_1 * tmp_1 + tmp_2 * tmp_2)
-        sE = sE + tmp_res
+    for i in range(1,n-1):
+        nextp = np.array((x[i+1],y[i+1]))
+        currp = np.array((x[i],y[i]))
+        prevp = np.array((x[i-1],y[i-1]))
+        sE = sE + np.sum((nextp -2 * currp + prevp)**2)
     return (sE)
 
 
-def internalFitness(individual):
-    return (alpha * continuityEnergy(individual) + beta * smoothnessEnergy(individual) + gamma * areaEnergy(individual))
-
-
-def externalFitness(individual):
-    return (gradientEnergy(individual))
-
-
 def eval(individual):
-    return (internalFitness(individual) + externalFitness(individual),)
-    #return (externalFitness(individual),)
-
+    sE = _smoothnessEnergy(individual)
+    cE = _continuityEnergy(individual)
+    aE = _areaEnergy(individual)
+    eE = _externalEnergy(individual)   
+    return (alpha * cE + beta * sE + gamma * eE,)
 
 
 def mutSet(prop, individual):
     size = len(individual[0])
     _x = random.randint(0, size - 1)
     _y = random.randint(0, 1)
-    individual[0][_x][_y] += np.int(random.uniform(-10, 10))
+    individual[0][_x][_y] += np.int(random.uniform(-2, 2))
     return individual,
 
 
@@ -134,7 +136,7 @@ def initIndividual():
 
 
 def genetic_algorithm():
-    random.seed(86)
+    random.seed(64)
     # init:
     creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
     creator.create("Individual", np.ndarray, fitness=creator.FitnessMin)
@@ -148,11 +150,11 @@ def genetic_algorithm():
     toolbox.register("mate", cxTwoPointCopy)
     toolbox.register("evaluate", eval)
     toolbox.register("mutate", mutSet, 0.05)
-    toolbox.register("select", tools.selTournament, tournsize=3)
-    random.seed(64)
+    toolbox.register("select", tools.selTournament, tournsize=7)
+    #random.seed(64)
 
     # run GA
-    pop = toolbox.population(n=150)
+    pop = toolbox.population(n=100)
 
     for p in pop:
         p.fitness.values = eval(p)
@@ -162,20 +164,24 @@ def genetic_algorithm():
     # check of the hall of fame. Using a different equality function like
     # numpy.array_equal or numpy.allclose solve this issue.
     hof = tools.HallOfFame(1, similar=np.array_equal)
-
+    
     stats = tools.Statistics(lambda ind: ind.fitness.values)
     stats.register("avg", np.mean)
     stats.register("std", np.std)
     stats.register("min", np.min)
     stats.register("max", np.max)
 
-    algorithms.eaSimple(pop, toolbox, cxpb=0.7, mutpb=0.002, ngen=500, stats=stats, halloffame=hof)
+    algorithms.eaSimple(pop, toolbox, cxpb=0.6, mutpb=0.2, ngen=150, stats=stats, halloffame=hof)
+    best = np.vstack([hof[0][0], hof[0][0][0]])
 
     fig, ax = plt.subplots(figsize=(7, 7))
     ax.imshow(image, cmap=plt.cm.gray)
-    ax.plot(hof[0][0][:, 0], hof[0][0][:, 1], '-b', lw=3)
+    circle1 = plt.Circle((125, 240), 80, color='r',fill=False)
+    ax.add_artist(circle1)
+    ax.plot(best[:, 0], best[:, 1], '-b', lw=3)
 
     plt.show()
+
     return pop, stats, hof
 
 
