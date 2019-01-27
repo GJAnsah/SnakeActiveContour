@@ -21,8 +21,9 @@ gamma = 1  #controls external engery impact
 
 wLine = 0
 wEdge = 1
+imagepath = 'pic3.png'
 
-image = cv2.imread('pic3.png')
+image = cv2.imread(imagepath)
 #image = data.astronaut()
 image = rgb2gray(image)
 
@@ -122,13 +123,13 @@ def initIndividual():
     _x = random.randint(min(range_x), max(range_x))
     _y = random.randint(min(range_y), max(range_y))
     _r = random.randint(min(range_r), max(range_r))
-    s = np.linspace(0, 2 * np.pi, 600)
+    s = np.linspace(0, 2 * np.pi, 50)
     x = _x + _r * np.cos(s)  # 130 + 80 * np.cos(s)
     y = _y + _r * np.sin(s)  # 250 + 57 * np.sin(s)
     V = np.array([x, y]).T
-    V2 = V[::50]
+    #V2 = V[::50]
 
-    x0, y0 = V2[:, 0].astype(np.int), V2[:, 1].astype(np.int)
+    x0, y0 = V[:, 0].astype(np.int), V[:, 1].astype(np.int)
 
     # store snake progress
     sn = np.array([x0, y0]).T
