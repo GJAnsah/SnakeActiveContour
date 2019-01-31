@@ -17,14 +17,15 @@ import cv2
 
 alpha = 0.5  # controls continuity energy impact
 beta =  0.9 # controls curvatur energy impact
-gamma = 1  #controls external engery impact
+gamma = 0.01  #controls area engery impact
 
-wLine = 0
-wEdge = 1
-imagepath = 'pic3.png'
+delta = -1 #controls intensity energy impact
+epsilon = 10 #controls gradient energy impact
+
+imagepath = 'pic3_e.png'
 
 image = cv2.imread(imagepath)
-#image = data.astronaut()
+
 image = rgb2gray(image)
 
 floatimage = skimage.img_as_float(image)
@@ -38,16 +39,17 @@ ax.imshow(edgeImage, cmap=plt.cm.gray)
 
 plt.show()
 
-externalEnergy = wLine * floatimage + wEdge * edgeImage
+externalEnergy = delta * floatimage + epsilon * edgeImage
 
 externalEnergyInterpolation = scipy.interpolate.RectBivariateSpline(np.arange(externalEnergy.shape[1]),
                                                                     np.arange(externalEnergy.shape[0]),
-                                                                    externalEnergy.T, kx=2, ky=2, s=0)
+                                                                    externalEnergy.T, kx=3, ky=3, s=10)
 
 def _externalEnergy(individual):
     x,y = individual[0][:,0], individual[0][:,1]
-    energies = externalEnergyInterpolation(x,y,dy=1,grid=False)
-    return (sum(energies))
+    energiesx = externalEnergyInterpolation(x,y,dx=1,grid=False)
+    #energiesy = externalEnergyInterpolation(x,y,dy=1,grid=False)
+    return (sum(energiesx))
 
 def _areaEnergy(individual):
     A = 0.0
@@ -57,7 +59,7 @@ def _areaEnergy(individual):
         tmp_2 = individual[0][i + 1][0] * individual[0][i][1]
         A = A + (tmp_1 - tmp_2)
     A = abs(A)
-    return 0.5 * A
+    return (0.5 * A)
 
 
 def _continuityEnergy(individual):
@@ -88,7 +90,7 @@ def eval(individual):
     cE = _continuityEnergy(individual)
     aE = _areaEnergy(individual)
     eE = _externalEnergy(individual)   
-    return (alpha * cE + beta * sE + gamma * eE,)
+    return (alpha * cE + beta * sE + gamma * aE + eE,)
 
 
 def mutSet(prop, individual):
@@ -117,13 +119,13 @@ def cxTwoPointCopy(ind1, ind2):
 
 
 def initIndividual():
-    range_x = (100, 150)
-    range_y = (200, 270)
-    range_r = (50, 80)
+    range_x = (100, 145)
+    range_y = (220, 230)
+    range_r = (60, 75)
     _x = random.randint(min(range_x), max(range_x))
     _y = random.randint(min(range_y), max(range_y))
     _r = random.randint(min(range_r), max(range_r))
-    s = np.linspace(0, 2 * np.pi, 50)
+    s = np.linspace(0, 2 * np.pi, 12)
     x = _x + _r * np.cos(s)  # 130 + 80 * np.cos(s)
     y = _y + _r * np.sin(s)  # 250 + 57 * np.sin(s)
     V = np.array([x, y]).T
@@ -150,8 +152,8 @@ def genetic_algorithm():
     # register crossover
     toolbox.register("mate", cxTwoPointCopy)
     toolbox.register("evaluate", eval)
-    toolbox.register("mutate", mutSet, 0.05)
-    toolbox.register("select", tools.selTournament, tournsize=7)
+    toolbox.register("mutate", mutSet, 0.2)
+    toolbox.register("select", tools.selTournament, tournsize=5)
     #random.seed(64)
 
     # run GA
@@ -172,7 +174,7 @@ def genetic_algorithm():
     stats.register("min", np.min)
     stats.register("max", np.max)
 
-    algorithms.eaSimple(pop, toolbox, cxpb=0.6, mutpb=0.2, ngen=150, stats=stats, halloffame=hof)
+    algorithms.eaSimple(pop, toolbox, cxpb=0.6, mutpb=0.2, ngen=200, stats=stats, halloffame=hof)
     best = np.vstack([hof[0][0], hof[0][0][0]])
 
     fig, ax = plt.subplots(figsize=(7, 7))
